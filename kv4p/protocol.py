@@ -8,8 +8,8 @@ from enum import IntEnum, IntFlag
 from typing import Optional
 
 
-# 8-byte delimiter that precedes every packet
-DELIMITER = bytes([0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF])
+# 4-byte delimiter that precedes every packet
+DELIMITER = bytes([0xDE, 0xAD, 0xBE, 0xEF])
 
 # Maximum payload size per packet
 PROTO_MTU = 2048
@@ -90,7 +90,16 @@ class FiltersConfig:
 
 @dataclass
 class VersionInfo:
-    """Firmware version response."""
+    """Firmware version response.
+
+    Wire format (packed, little-endian):
+        uint16_t ver              — firmware version
+        char     radioModuleStatus — 'f' = found, other = not found
+        uint32_t windowSize       — USB buffer / flow-control window
+        uint8_t  rfModuleType     — 0 = VHF, 1 = UHF
+        uint8_t  features         — capability bitmask
+    Total: 9 bytes minimum (firmware may send up to 12).
+    """
     firmware_version: int = 0
     radio_module_present: bool = False
     window_size: int = 0
@@ -99,12 +108,12 @@ class VersionInfo:
 
     @classmethod
     def unpack(cls, data: bytes) -> VersionInfo:
-        if len(data) < 6:
+        if len(data) < 9:
             raise ValueError(f"VERSION payload too short: {len(data)} bytes")
-        fw, radio, win, rf, caps = struct.unpack("<HBBBB", data[:6])
+        fw, radio_char, win, rf, caps = struct.unpack_from("<HcIBB", data)
         return cls(
             firmware_version=fw,
-            radio_module_present=bool(radio),
+            radio_module_present=(radio_char == b'f'),
             window_size=win,
             rf_module_type=RfModuleType(rf),
             capability_flags=CapabilityFlags(caps),
@@ -158,7 +167,7 @@ class PacketParser:
             if idx > 0:
                 self._buf = self._buf[idx:]
 
-            # Need delimiter + cmd(1) + length(2) = 11 bytes minimum
+            # Need delimiter(4) + cmd(1) + length(2) = 7 bytes minimum
             header_size = len(DELIMITER) + 3
             if len(self._buf) < header_size:
                 break
