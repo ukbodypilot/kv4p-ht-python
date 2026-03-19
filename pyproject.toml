@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "kv4p-ht"
+version = "0.1.0"
+description = "Python driver for KV4P HT ham radio over USB serial"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.9"
+dependencies = [
+    "pyserial>=3.5",
+]
+
+[project.optional-dependencies]
+audio = ["opuslib>=3.0.1"]
+dev = ["pytest", "opuslib>=3.0.1"]
+
+[project.scripts]
+kv4p = "kv4p.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["kv4p*"]
