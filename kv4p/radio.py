@@ -109,6 +109,9 @@ class KV4PRadio:
 
         if not self._version_event.wait(timeout=5.0):
             log.warning("No VERSION response — device may be running older firmware")
+            # Provide a default so callers don't get None
+            if self.version is None:
+                self.version = VersionInfo()
         else:
             log.info("Connected: fw=%d, rf=%s, caps=%s",
                       self.version.firmware_version,
