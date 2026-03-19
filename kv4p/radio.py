@@ -77,27 +77,34 @@ class KV4PRadio:
             stopbits=serial.STOPBITS_ONE,
             timeout=self.timeout,
         )
+
+        # Drain stale data from any prior session
+        self._ser.reset_input_buffer()
+        self._ser.reset_output_buffer()
+        self._parser = PacketParser()
+
         self._running = True
         self._reader_thread = threading.Thread(
             target=self._reader_loop, daemon=True, name="kv4p-reader"
         )
         self._reader_thread.start()
 
-        # Wait for HELLO from device
+        # Try to catch HELLO (only sent on fresh boot).
+        # If device is already running from a prior session, HELLO won't come.
         log.info("Waiting for device HELLO...")
-        if not self._handshake_event.wait(timeout=handshake_timeout):
-            raise TimeoutError(
-                f"No HELLO from device within {handshake_timeout}s. "
-                "Check USB connection and firmware."
-            )
+        got_hello = self._handshake_event.wait(timeout=handshake_timeout)
 
-        # Request version
+        if not got_hello:
+            log.info("No HELLO — device may already be running, proceeding.")
+
+        # Send STOP to ensure clean state, then CONFIG to get VERSION
         self._send(HostCommand.STOP)
-        time.sleep(0.1)
-        self._version_event.clear()
+        time.sleep(0.2)
+        # Drain any leftover audio that was in flight
+        self._ser.reset_input_buffer()
+        self._parser = PacketParser()
 
-        # Send a minimal config to trigger version response
-        # CONFIG: 1 byte power (1=high)
+        self._version_event.clear()
         self._send(HostCommand.CONFIG, bytes([1]))
 
         if not self._version_event.wait(timeout=5.0):
@@ -189,7 +196,7 @@ class KV4PRadio:
                     continue
                 for pkt in self._parser.feed(data):
                     self._dispatch(pkt)
-            except serial.SerialException as e:
+            except (serial.SerialException, TypeError, OSError) as e:
                 if self._running:
                     log.error("Serial error: %s", e)
                 break

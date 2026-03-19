@@ -111,11 +111,15 @@ class VersionInfo:
         if len(data) < 9:
             raise ValueError(f"VERSION payload too short: {len(data)} bytes")
         fw, radio_char, win, rf, caps = struct.unpack_from("<HcIBB", data)
+        try:
+            rf_type = RfModuleType(rf)
+        except ValueError:
+            rf_type = RfModuleType.SA818_VHF
         return cls(
             firmware_version=fw,
             radio_module_present=(radio_char == b'f'),
             window_size=win,
-            rf_module_type=RfModuleType(rf),
+            rf_module_type=rf_type,
             capability_flags=CapabilityFlags(caps),
         )
 
