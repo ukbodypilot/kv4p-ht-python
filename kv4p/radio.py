@@ -118,9 +118,6 @@ class KV4PRadio:
                       self.version.rf_module_type.name,
                       self.version.capability_flags)
 
-        # Enable DRA818 hardware filters by default (pre-emphasis, HPF, LPF)
-        self.set_filters(FiltersConfig(pre_emphasis=True, highpass=True, lowpass=True))
-
         return self.version
 
     def close(self) -> None:
