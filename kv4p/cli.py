@@ -50,8 +50,9 @@ def main() -> None:
         tx_freq=tx_freq,
         rx_freq=args.freq,
         bandwidth=bandwidth,
-        ctcss=args.ctcss,
+        ctcss_tx=args.ctcss,
         squelch=args.squelch,
+        ctcss_rx=args.ctcss,
     )
 
     radio = KV4PRadio(args.port)

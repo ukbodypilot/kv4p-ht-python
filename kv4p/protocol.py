@@ -58,23 +58,34 @@ class CapabilityFlags(IntFlag):
 
 @dataclass
 class GroupConfig:
-    """Radio group/channel configuration."""
+    """Radio group/channel configuration.
+
+    Wire format (packed, 12 bytes):
+        uint8_t bw        — 0 = narrow (12.5 kHz), 1 = wide (25 kHz)
+        float   freq_tx   — TX frequency in MHz
+        float   freq_rx   — RX frequency in MHz
+        uint8_t ctcss_tx  — TX CTCSS tone code (0 = none)
+        uint8_t squelch   — squelch level 0-8
+        uint8_t ctcss_rx  — RX CTCSS tone code (0 = none)
+    """
     tx_freq: float          # MHz, e.g. 146.520
     rx_freq: float          # MHz
     bandwidth: int = 1      # 0 = narrow (12.5 kHz), 1 = wide (25 kHz)
-    ctcss: int = 0          # CTCSS tone code (0 = none)
+    ctcss_tx: int = 0       # TX CTCSS tone code (0 = none)
     squelch: int = 4        # Squelch level 0-8
+    ctcss_rx: int = 0       # RX CTCSS tone code (0 = none)
 
     def pack(self) -> bytes:
-        """Pack into 12-byte wire format."""
-        return struct.pack("<ffHBB",
-                           self.tx_freq, self.rx_freq,
-                           self.bandwidth, self.ctcss, self.squelch)
+        """Pack into 12-byte wire format matching firmware Group struct."""
+        return struct.pack("<BffBBB",
+                           self.bandwidth, self.tx_freq, self.rx_freq,
+                           self.ctcss_tx, self.squelch, self.ctcss_rx)
 
     @classmethod
     def unpack(cls, data: bytes) -> GroupConfig:
-        tx, rx, bw, ct, sq = struct.unpack("<ffHBB", data[:12])
-        return cls(tx_freq=tx, rx_freq=rx, bandwidth=bw, ctcss=ct, squelch=sq)
+        bw, tx, rx, ct_tx, sq, ct_rx = struct.unpack("<BffBBB", data[:12])
+        return cls(tx_freq=tx, rx_freq=rx, bandwidth=bw,
+                   ctcss_tx=ct_tx, squelch=sq, ctcss_rx=ct_rx)
 
 
 @dataclass

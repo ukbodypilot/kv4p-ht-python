@@ -172,8 +172,26 @@ class KV4PRadio:
         log.info("PTT OFF")
 
     def send_audio(self, opus_data: bytes) -> None:
-        """Send Opus-encoded TX audio frame. Respects flow control window."""
+        """Send a single Opus-encoded TX audio frame."""
         self._send(HostCommand.TX_AUDIO, opus_data)
+
+    def transmit_frames(self, frames: list[bytes], frame_ms: float = 40.0) -> int:
+        """Send a sequence of Opus frames with correct pacing.
+
+        Uses wall-clock alignment so encode/send overhead doesn't
+        accumulate as drift. Returns the number of frames sent.
+        """
+        sent = 0
+        t0 = time.monotonic()
+        for i, frame in enumerate(frames):
+            self._send(HostCommand.TX_AUDIO, frame)
+            sent += 1
+            # Sleep until the next frame boundary
+            target = t0 + (i + 1) * (frame_ms / 1000.0)
+            now = time.monotonic()
+            if target > now:
+                time.sleep(target - now)
+        return sent
 
     # ── Internal: serial I/O ────────────────────────────────────────
 
