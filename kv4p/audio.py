@@ -127,6 +127,53 @@ class VolumeRamp:
         return self._volume >= self.threshold
 
 
+class ClickRemover:
+    """Remove periodic click artifacts from KV4P HT RX audio using median filter.
+
+    The KV4P HT firmware produces ~5Hz clicks due to I2S DMA buffer
+    interactions with the Opus encoder. These appear as rapid waveform
+    transitions within the normal signal range — traditional click detection
+    can't distinguish them from real audio transients.
+
+    A short median filter (3-5 samples) smooths these transitions without
+    significantly affecting voice quality (at 48kHz, 5 samples = 0.1ms).
+    """
+
+    def __init__(self, kernel_size: int = 3) -> None:
+        """
+        Args:
+            kernel_size: median filter kernel size (must be odd). 3 is subtle,
+                        5 is more aggressive. Higher values muffle the audio.
+        """
+        self.kernel_size = kernel_size | 1  # Ensure odd
+
+    def process(self, pcm_s16: bytes) -> bytes:
+        """Apply median filter to PCM s16 LE buffer."""
+        try:
+            from scipy.signal import medfilt
+            import numpy as np
+            samples = np.frombuffer(pcm_s16, dtype=np.int16).astype(np.float32)
+            filtered = medfilt(samples, kernel_size=self.kernel_size)
+            return filtered.astype(np.int16).tobytes()
+        except ImportError:
+            # scipy not available — try numpy-only median
+            try:
+                import numpy as np
+                samples = np.frombuffer(pcm_s16, dtype=np.int16).astype(np.float32)
+                n = len(samples)
+                k = self.kernel_size
+                pad = k // 2
+                padded = np.pad(samples, pad, mode='edge')
+                # Sliding window median using stride tricks
+                shape = (n, k)
+                strides = (padded.strides[0], padded.strides[0])
+                windows = np.lib.stride_tricks.as_strided(padded, shape=shape, strides=strides)
+                filtered = np.median(windows, axis=1)
+                return filtered.astype(np.int16).tobytes()
+            except Exception:
+                return pcm_s16
+
+
 def pcm_to_float(pcm_s16: bytes) -> list[float]:
     """Convert signed 16-bit LE PCM bytes to float samples (-1.0 to 1.0)."""
     n = len(pcm_s16) // 2

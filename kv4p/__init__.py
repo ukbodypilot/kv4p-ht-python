@@ -14,6 +14,7 @@ from .protocol import (
 from .audio import (
     DCOffsetRemover,
     VolumeRamp,
+    ClickRemover,
     OpusEncoder,
     OpusDecoder,
 )
