@@ -8,7 +8,14 @@ from .protocol import (
     RfModuleType,
     CapabilityFlags,
     GroupConfig,
+    FiltersConfig,
     VersionInfo,
+)
+from .audio import (
+    DCOffsetRemover,
+    VolumeRamp,
+    OpusEncoder,
+    OpusDecoder,
 )
 
 __version__ = "0.1.0"
@@ -20,5 +27,10 @@ __all__ = [
     "RfModuleType",
     "CapabilityFlags",
     "GroupConfig",
+    "FiltersConfig",
     "VersionInfo",
+    "DCOffsetRemover",
+    "VolumeRamp",
+    "OpusEncoder",
+    "OpusDecoder",
 ]

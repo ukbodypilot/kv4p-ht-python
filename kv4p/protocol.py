@@ -90,13 +90,26 @@ class GroupConfig:
 
 @dataclass
 class FiltersConfig:
-    """Audio filter settings."""
+    """DRA818 radio module filter settings.
+
+    Wire format: single uint8_t bitmask.
+        bit 0: pre/de-emphasis (50µs FM standard)
+        bit 1: highpass (~300Hz)
+        bit 2: lowpass (audio band)
+    """
     pre_emphasis: bool = True
     highpass: bool = True
     lowpass: bool = True
 
     def pack(self) -> bytes:
-        return bytes([self.pre_emphasis, self.highpass, self.lowpass])
+        flags = 0
+        if self.pre_emphasis:
+            flags |= (1 << 0)
+        if self.highpass:
+            flags |= (1 << 1)
+        if self.lowpass:
+            flags |= (1 << 2)
+        return bytes([flags])
 
 
 @dataclass
