@@ -129,15 +129,32 @@ class VersionInfo:
     window_size: int = 0
     rf_module_type: RfModuleType = RfModuleType.SA818_VHF
     capability_flags: CapabilityFlags = CapabilityFlags(0)
+    # True only when populated from an actual VERSION packet (set by
+    # unpack()). False on the synthetic VersionInfo() that radio.open()
+    # returns when the handshake times out — so callers can distinguish
+    # "detected as VHF" from "no handshake, fields are defaults".
+    is_valid: bool = False
+    # Raw VERSION payload bytes when known; useful for diagnosing new
+    # firmware variants whose rf_module byte isn't in the RfModuleType enum.
+    raw_bytes: bytes = b''
 
     @classmethod
     def unpack(cls, data: bytes) -> VersionInfo:
         if len(data) < 9:
             raise ValueError(f"VERSION payload too short: {len(data)} bytes")
         fw, radio_char, win, rf, caps = struct.unpack_from("<HcIBB", data)
+        import sys
         try:
             rf_type = RfModuleType(rf)
         except ValueError:
+            # New module variant the enum doesn't know about. Don't silently
+            # pretend it's VHF — that's how the UHF radio bring-up went
+            # sideways. Log loudly and keep going with the VHF fallback so
+            # the radio still connects.
+            print(f"[VersionInfo.unpack] WARNING: unknown rf_module byte "
+                  f"0x{rf:02x} ({rf}) — extend RfModuleType enum. "
+                  f"Falling back to SA818_VHF; raw bytes: {data.hex()}",
+                  flush=True, file=sys.stderr)
             rf_type = RfModuleType.SA818_VHF
         return cls(
             firmware_version=fw,
@@ -145,6 +162,8 @@ class VersionInfo:
             window_size=win,
             rf_module_type=rf_type,
             capability_flags=CapabilityFlags(caps),
+            is_valid=True,
+            raw_bytes=bytes(data),
         )
 
 
